@@ -16,4 +16,5 @@ So the strategy was that each move must have the objective to captured a opponen
 he is based on the playerAlphaBeta but there are many new improvements about the strategy and many tricks implemented in order to ameliorate the performance of our functions and by the way the performance of our player. 
 So instead of a simple alphabeta algorithm, we implemented a iterative deepening Alpha Beta algorithm. The idea is to compute score for positions with a incremental depth (1, 2 etc...). The calculus stop when a time maximum is reached. This method enable to limit/control the time taken for a calculus and not exceed the global time for our player game which is 30 min (contraint from the subject).
 We also used a transposition table for keep in memory calculus and didn't calculate two time for a node (of our tree).
+We also used a dictionary of opening move so the 12 firsts moves are played between this dictionnary.
 Finally the strategy is based on making eyes, capturing stones and space and improve the global liberties of our positions.
