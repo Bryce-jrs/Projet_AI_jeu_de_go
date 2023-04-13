@@ -20,7 +20,7 @@ class myPlayer(PlayerInterface):
     def __init__(self):
         self._board = Goban.Board()
         self._mycolor = None
-        self.max_depth = 2
+        self.max_depth = 10
         self.best_for_black = MIN_SCORE 
         self.best_for_white = MAX_SCORE 
 

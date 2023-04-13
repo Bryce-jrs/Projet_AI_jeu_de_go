@@ -12,7 +12,7 @@ import sys
 b = Goban.Board()
 
 players = []
-player1 = PlayerSenior.myPlayer()
+player1 = myPlayer.myPlayer()
 player1.newGame(Goban.Board._BLACK)
 players.append(player1)
 

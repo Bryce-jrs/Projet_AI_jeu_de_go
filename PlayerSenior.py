@@ -16,7 +16,7 @@ from collections import Counter
 
 MAX_SCORE = math.inf
 MIN_SCORE = -math.inf
-MAX_TIME = 0.6
+MAX_TIME = 10
 class myPlayer(PlayerInterface):
     ''' Example of a random player for the go. The only tricky part is to be able to handle
     the internal representation of moves given by legal_moves() and used by push() and 
@@ -27,7 +27,7 @@ class myPlayer(PlayerInterface):
     def __init__(self):
         self._board = Goban.Board()
         self._mycolor = None
-        self.max_depth = 8
+        self.max_depth = 30
         self.best_for_black = None
         self.best_for_white = None
         self.previous_move = None
@@ -49,6 +49,8 @@ class myPlayer(PlayerInterface):
         
         move = self.selectMove("games.json",self._board,self.max_depth,self.best_for_black,self.best_for_white,self.heuristicGo)
         self.previous_move = move
+        if move == -1 :
+            move = choice(self._board.legal_moves())
         self._board.push(move)
         # New here: allows to consider internal representations of moves
         print("I am playing ", self._board.move_to_str(move))
@@ -72,7 +74,10 @@ class myPlayer(PlayerInterface):
         else:
             print("I lost :(!!")
 
-    ####################################################################################################################################################################################
+
+
+
+    ############################################### STRATEGY ########################################
 
     def checkNeighbors(self, neighbors,expected):
         """
@@ -204,12 +209,18 @@ class myPlayer(PlayerInterface):
         compute_score = score[0]-score[1]
         euler = self.DiffEulerNumber()
         liberties = self.globalDiffLiberties()
-        print("compute_score",compute_score)
-        score = 0.7*euler +0.3*liberties + 0.3*compute_score
+        score = 20*euler +10*liberties + 2*self.numberOfMovePlayed(b)*compute_score
+        print("Score", score)
         if b.next_player() == self._mycolor:
-            return score
+            if self._mycolor == b._BLACK:
+                return score
+            else: 
+                return -1*score
         elif b.next_player() == opponent:
-            return -1*score
+            if self._mycolor == b._BLACK:
+                return -1* score
+            else: 
+                return score
      
     
     def numberOfMovePlayed(self,b):
@@ -220,7 +231,14 @@ class myPlayer(PlayerInterface):
             return b._nbBLACK
         elif self._mycolor == b._WHITE:
             return b._nbWHITE
-        
+    
+    def numberMoveOpponentPlayed(self,b):
+        opponent = b.flip(self._mycolor)
+        if opponent == b._BLACK:
+            return b._nbBLACK
+        elif opponent == b._WHITE:
+            return b._nbWHITE
+
     def selectMove(self,file,b,max_depth,best_for_black,best_for_white,evaluate):
         """
             returns a move
@@ -243,41 +261,36 @@ class myPlayer(PlayerInterface):
 
     def openMoves(self,b,data,position,previous_move):
         """
-            return a move taken in a record of game from professional.
-            The function take this data and build a list of the moves the 
-            most played by professionnal at the start.
-            If this move is our first move, we will play the first move of the list
-            if he is legal else return the second move of the list 
-            Else if it is not our first move we return the most played move by professionnal after the
-            previous move. If there are not valid moves in the list return a random one.
-            
+            Returns a move taken in a record of game from professional. The function builds a list of
+            the most played moves by professionals at the start. If it is the first move, it plays the
+            first move of the list if it is legal, otherwise, it plays the second move. If it is not the
+            first move, it returns the most played move by professionals after the previous move. If there
+            are no valid moves in the list, it returns a random move.
+
+            Args:
+                b (board): The current state of the board.
+                data (list): The list of games.
+                position (int): The current position in the game.
+                previous_move (int): The previous move played.
+
+            Returns:
+                A valid move to play.
         """
-        
-        relevant_games= None
+    
         if position == 0:
             relevant_games = [game["moves"][0] for game in data]
         else : 
             relevant_games = [game["moves"][position] for game in data if game["moves"][position-1] == b.coord_to_name(b.unflatten(previous_move))]
         move_counts = Counter(relevant_games)
         sorted_moves = sorted(move_counts.items(), key=lambda x: x[1], reverse=True)
-        moves = [b.flatten(b.name_to_coord(sorted_moves[i][0])) for i in range(len(sorted_moves))]
+        moves = [b.flatten(b.name_to_coord(sorted_moves[0])) for sorted_moves in sorted_moves]
         legals = b.legal_moves()
         intersect = list(set(moves)&set(legals))
-        move = self.getMoves(legals, intersect)
-        return move
-    
-
-    def getMoves(self,legals,intersect):
-        """
-            return a move. This move will be a random move if the intersect list is
-            empty. intersect is the list of moves in our list of open which are also 
-            legals. 
-        """     
         if len(intersect)==0:
             return choice(legals)
         else:
             return intersect[0]
-
+    
 
     def game_winner(self,b):
         """
@@ -291,17 +304,14 @@ class myPlayer(PlayerInterface):
 
     
 
-    def alpha_beta(self,b,max_depth,best_for_black,best_for_white,evaluate):
+    def alpha_beta(self,b,max_depth,best_for_black,best_for_white,evaluate,start_time):
         """
         Implementation of the alpha beta tree search algorithm.
         The idea is to chose the move which maximize a score calculated by our 
         heuristic
         """
 
-        # check if the game state exist in the transposition table 
-        # if the actual game state exist in the transposition table
-        # we just take the score from the transposition table
-
+        # check if the game state exists in the transposition table 
         if b._currentHash in self._transposition_table:
             entry = self._transposition_table[b._currentHash]
             if entry["depth"] >= max_depth:
@@ -312,9 +322,8 @@ class myPlayer(PlayerInterface):
                 elif entry["flag"] == "UPPERBOUND":
                     best_for_white = min(best_for_white, entry["score"])
 
+
         # if game over and max_depth > 0, then return the evaluation of the heuristic
-        # else if depth == 
-        
         if b.is_game_over():
             if self.game_winner(b) == b.next_player():
                 return MAX_SCORE
@@ -323,10 +332,11 @@ class myPlayer(PlayerInterface):
         if max_depth == 0:
             return evaluate(b)
         
+        # alpha-beta search
         best_so_far = MIN_SCORE
         for move in b.legal_moves():
             b.push(move)
-            opponent_best_result = -1 * self.alpha_beta(b,max_depth-1,best_for_black,best_for_white,evaluate)
+            opponent_best_result = -1 * self.alpha_beta(b,max_depth-1,best_for_black,best_for_white,evaluate,start_time)
             b.pop()
 
             if opponent_best_result > best_so_far:
@@ -346,6 +356,11 @@ class myPlayer(PlayerInterface):
             if outcome_for_white <= best_for_white:
                 break
 
+            duree = time.time() - start_time
+            if duree >= MAX_TIME:
+                print("exceed time at "+ str(duree))
+                break
+        # update transposition table
         if best_so_far <= best_for_black:
             flag = "UPPERBOUND"
         elif best_so_far >= best_for_white:
@@ -353,90 +368,24 @@ class myPlayer(PlayerInterface):
         else:
             flag = "EXACT"
         self._transposition_table[b._currentHash] = {"depth": max_depth, "score": best_so_far, "flag": flag}
-
+        print("depth",max_depth)
         return best_so_far
     
-
-
-    def alpha_beta_iterative_deepening(self,b,max_depth,best_for_black,best_for_white,evaluate):
-        """
-            Implementation of the alpha beta tree search algorithm using iterative deepening.
-            The idea is to choose the move which maximizes a score calculated by our heuristic.
-        """
-        start_time = time.time()
-        for depth in range(1,max_depth+1):
-            if b._currentHash in self._transposition_table:
-                entry = self._transposition_table[b._currentHash]
-                if entry["depth"] >= max_depth:
-                    if entry["flag"] == "EXACT":
-                        return entry["score"]
-                    elif entry["flag"] == "LOWERBOUND":
-                        best_for_black = max(best_for_black, entry["score"])
-                    elif entry["flag"] == "UPPERBOUND":
-                        best_for_white = min(best_for_white, entry["score"])
-
-            # if game over and max_depth > 0, then return the evaluation of the heuristic
-            # else if depth == 
-        
-            if b.is_game_over():
-                if self.game_winner(b) == b.next_player():
-                    return MAX_SCORE
-                else:
-                    return MIN_SCORE
-            if max_depth == 0:
-                return evaluate(b)
-        
-            best_so_far = MIN_SCORE
-            for move in b.legal_moves():
-                b.push(move)
-                opponent_best_result = -1 * self.alpha_beta(b,depth-1,best_for_black,best_for_white,evaluate)
-                b.pop()
-
-                if opponent_best_result > best_so_far:
-                    best_so_far = opponent_best_result
-
-                if b.next_player() == b._WHITE and best_so_far >= best_for_white:
-                    if best_so_far > best_for_white:
-                        best_for_white = best_so_far
-                    outcome_for_black = -1 * best_so_far
-                    if outcome_for_black <= best_for_black:
-                        break
-        
-                elif b.next_player() == b._BLACK and best_so_far >= best_for_black:
-                    if best_so_far > best_for_black:
-                        best_for_black = best_so_far
-                    outcome_for_white = -1 * best_so_far
-                    if outcome_for_white <= best_for_white:
-                        break
-
-            if best_so_far <= best_for_black:
-                flag = "UPPERBOUND"
-            elif best_so_far >= best_for_white:
-                flag = "LOWERBOUND"
-            else:
-                flag = "EXACT"
-            self._transposition_table[b._currentHash] = {"depth": max_depth, "score": best_so_far, "flag": flag}
-
-            duree = time.time() - start_time
-            if duree >= MAX_TIME:
-                print(duree)
-                print(depth)
-                break
-        return best_so_far
 
     def select_move_alpha(self,b,max_depth,best_for_black,best_for_white,evaluate):
         best_moves = []
         best_score = None
+        start_time = time.time()
         for move in b.legal_moves():
             b.push(move)
-            opponent_best_outcome = -1 * self.alpha_beta_iterative_deepening(b,max_depth,best_for_black,best_for_white,evaluate)
+            opponent_best_outcome = -1 * self.alpha_beta(b,max_depth,best_for_black,best_for_white,evaluate,start_time)
             b.pop()
             if (not best_moves) or opponent_best_outcome > best_score:
                 best_moves = [move]
                 best_score = opponent_best_outcome
             elif opponent_best_outcome == best_score:
                 best_moves.append(move)
-
+            
         if b.next_player() == b._BLACK:
             best_for_black = best_score
         elif b.next_player() == b._WHITE:

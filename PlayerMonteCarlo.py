@@ -5,7 +5,6 @@ myPlayer class.
 Right now, this class contains the copy of the randomPlayer. But you have to change this!
 '''
 
-import time
 import math
 import Goban
 import random
@@ -24,13 +23,13 @@ class myPlayer(PlayerInterface):
         self._mycolor = None
 
     def getPlayerName(self):
-        return "Random Player"
+        return "Player MonteCarlo"
 
     def getPlayerMove(self):
         if self._board.is_game_over():
             print("Referee told me to play but the game is over!")
             return "PASS" 
-        mcts = MCTS(100,1)
+        mcts = MCTS(150,1.3)
         move = mcts.select_move(self._board)
         self._board.push(move)
 
@@ -69,12 +68,14 @@ class MCTSNode(object):
             self.game_state._WHITE: 0,
         }
         self.num_rollouts = 0
-        self.children = []
         self.unvisited_moves = self.game_state.legal_moves()
+        self.children = []
+        
 # end::mcts-node[]
 
 # tag::mcts-add-child[]
     def add_random_child(self):
+        self.unvisited_moves = self.game_state.legal_moves()
         index = random.randint(0, len(self.unvisited_moves) - 1)
         new_move = self.unvisited_moves.pop(index)
         self.game_state.push(new_move)
@@ -111,11 +112,8 @@ class MCTS():
         self.num_rounds = num_rounds
         self.temperature = temperature
 
-# tag::mcts-signature[]
     def select_move(self, game_state):
         root = MCTSNode(game_state)
-# end::mcts-signature[]
-
 # tag::mcts-rounds[]
         for i in range(self.num_rounds):
             node = root
@@ -155,7 +153,7 @@ class MCTS():
                 best_move = child.move
         return best_move
 # end::mcts-selection[]
-
+    
 # tag::mcts-uct[]
     def select_child(self, node):
         """Select a child according to the upper confidence bound for
@@ -163,14 +161,13 @@ class MCTS():
         """
         total_rollouts = sum(child.num_rollouts for child in node.children)
         log_rollouts = math.log(total_rollouts)
-
         best_score = -1
         best_child = None
         # Loop over each child.
         for child in node.children:
             # Calculate the UCT score.
             win_percentage = child.winning_frac(node.game_state.next_player())
-            exploration_factor = math.sqrt(log_rollouts / child.num_rollouts)
+            exploration_factor = math.sqrt((log_rollouts) / child.num_rollouts)
             uct_score = win_percentage + self.temperature * exploration_factor
             # Check if this is the largest we've seen so far.
             if uct_score > best_score:
@@ -178,16 +175,16 @@ class MCTS():
                 best_child = child
         return best_child
     
-
+        
 # end::mcts-uct[]
     @staticmethod
-    def randomBot(b: Goban.Board) -> str:
+    def randomBot(b):
         moves= b.legal_moves()
         move = choice(moves)
         return move
     
     @staticmethod
-    def game_winner(b : Goban.Board) -> int:
+    def game_winner(b):
         result = b.result()
         if result == "0-1":
             return b._BLACK
@@ -198,7 +195,7 @@ class MCTS():
         
 
     @staticmethod
-    def simulate_random_game(b :Goban.Board) -> int:
+    def simulate_random_game(b):
         count = 0
         while not b.is_game_over():
             bot_move = MCTS.randomBot(b)
