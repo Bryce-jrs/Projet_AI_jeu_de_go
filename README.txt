@@ -1,3 +1,6 @@
+Par Brice Tago, Mennad Chalabi, Priscilla Tissot.
+
+
 Goban.py 
 ---------
 

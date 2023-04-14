@@ -1,5 +1,4 @@
-# AI_GO_PROJECT
-
+# AI_GO_PROJECT by Brice Tago, Mennad Chalabi, Priscilla Tissot
 The goal was to build a AI player for go game
 
 ## PlayerMonteCarlo
